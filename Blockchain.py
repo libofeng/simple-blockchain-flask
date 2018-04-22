@@ -1,6 +1,10 @@
 import hashlib
 import json
+from textwrap import dedent
 from time import time
+from uuid import uuid4
+
+from flask import Flask, jsonify, request
 
 
 class Blockchain(object):
@@ -65,3 +69,66 @@ class Blockchain(object):
     @property
     def last_block(self):
         return self.chain[-1]
+
+    def proof_of_work(self, last_proof):
+        """
+        简单的工作量证明：
+            - 查找一个 p' 使得 hash(pp')以4个0开头
+            - p 是上一个块的证明， p'是当前的证明
+        :param last_proof: <int>
+        :return: <int>
+        """
+
+        proof = 0
+        while self.valid_proof(last_proof, proof) is False:
+            proof += 1
+
+        return proof
+
+    @staticmethod
+    def valid_proof(last_proof, proof):
+        """
+        验证证明： 是否hash(last_proof, proof)以4个0开头？
+        :param last_proof: <int> Previous Proof
+        :param proof: <int> Current Proof
+        :return: <bool> True if correct, False if not.
+        """
+
+        guess = f'{last_proof}{proof}'.encode()
+        guess_hash = hashlib.sha256(guess).hexdigest()
+        return guess_hash[:4] == "0000"
+
+
+# Flask Web
+
+# Instantiate our Node
+app = Flask(__name__)
+
+# Generate a globally unique address for this node
+node_identifier = str(uuid4()).replace('-', '')
+
+# Instantiate the Blockchain
+blockchain = Blockchain()
+
+
+@app.route('/mine', methods=['GET'])
+def mine():
+    return "We'll mine a new Block"
+
+
+@app.route('/transactions/new', methods=['POST'])
+def new_transaction():
+    return "We'll add a new transaction"
+
+
+@app.route('/chain', methods=['GET'])
+def full_chain():
+    response = {
+        'chain': blockchain.chain,
+        'length': len(blockchain.chain),
+    }
+    return jsonify(response), 200
+
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
